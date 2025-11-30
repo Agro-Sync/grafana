@@ -210,7 +210,7 @@ jobs:
             cd /home/ec2-user/grafana
 
             echo "→ Atualizando repositório"
-            git pull origin main
+            sudo git pull origin main
 
             echo "→ Reiniciando containers"
             sudo docker-compose down || true
