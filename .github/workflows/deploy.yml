@@ -69,16 +69,6 @@ jobs:
           name: screenshots
           path: screenshots/
 
-      - name: Run scraping
-        run: |
-          python -u .github/workflows/scraping.py
-
-      - name: Upload Scraping
-        uses: actions/upload-artifact@v4
-        with:
-          name: scraping
-          path: src/scraping
-
 
   validar-credenciais:
     name: Validar credenciais AWS
@@ -109,6 +99,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ needs.configurar-credenciais.outputs.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ needs.configurar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ needs.configurar-credenciais.outputs.AWS_SESSION_TOKEN }}
+
 
   deploy-grafana-cloudformation:
     name: Deploy Grafana via CloudFormation
