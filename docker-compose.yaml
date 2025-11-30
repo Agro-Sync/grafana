@@ -16,6 +16,7 @@ services:
       - GF_SECURITY_ENABLE_MFA=true
       - GF_SECURITY_MFA_TOKEN_VALIDITY=300
       - GF_SECURITY_MFA_ENABLED_TOTP=true
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
 
       # Tornar MFA obrigatório
       - GF_AUTH_REQUIRE_MFA=true

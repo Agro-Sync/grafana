@@ -106,6 +106,10 @@ jobs:
     name: Deploy Grafana via CloudFormation
     runs-on: ubuntu-latest
     needs: validar-credenciais
+    outputs:
+      aws_access_key_id: ${{ needs.validar-credenciais.outputs.aws_access_key_id }}
+      aws_secret_access_key: ${{ needs.validar-credenciais.outputs.aws_secret_access_key }}
+      aws_session_token: ${{ needs.validar-credenciais.outputs.aws_session_token }}
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v3
@@ -154,3 +158,63 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.AWS_SESSION_TOKEN }}
           AWS_DEFAULT_REGION: us-east-1
+
+
+  deploy-update:
+    name: Atualizar código no Grafana (EC2 via SSH)
+    needs: deploy-grafana-cloudformation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v3
+
+      - name: Instalar SSH Client e AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-client curl unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Restaurar chave PEM
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GRAFANA_KEY }}" > ~/.ssh/grafana.pem
+          chmod 600 ~/.ssh/grafana.pem
+
+      - name: Obter IP público da EC2 pelo nome
+        id: get_ip
+        run: |
+          IP=$(aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=grafana-server" \
+                        "Name=instance-state-name,Values=running" \
+              --query "Reservations[0].Instances[0].PublicIpAddress" \
+              --output text)
+
+          echo "EC2_IP=$IP" >> $GITHUB_OUTPUT
+          echo "IP encontrado: $IP"
+
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.deploy-grafana-cloudformation.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.deploy-grafana-cloudformation.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ needs.deploy-grafana-cloudformation.outputs.aws_session_token }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Atualizar código e reiniciar Docker
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -i ~/.ssh/grafana.pem \
+              ec2-user@${{ steps.get_ip.outputs.EC2_IP }} << 'EOF'
+            
+            set -e
+            cd /home/ec2-user/grafana
+
+            echo "→ Atualizando repositório"
+            git pull origin main
+
+            echo "→ Reiniciando containers"
+            sudo docker-compose down || true
+            sudo docker-compose up -d --build
+
+            echo "Deploy finalizado!"
+          EOF
