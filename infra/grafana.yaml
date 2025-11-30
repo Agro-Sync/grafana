@@ -64,7 +64,12 @@ Resources:
           git clone https://github.com/Agro-Sync/grafana.git
           cd grafana
           
-          /usr/local/bin/docker-compose up -d
+          # Criar diretório de dados com permissões
+          mkdir -p ./data
+          chmod 777 ./data
+          
+          # Rodar docker-compose com sudo
+          sudo /usr/local/bin/docker-compose up -d
           
           echo "[$(date)] Grafana iniciado com sucesso!"
 

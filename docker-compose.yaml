@@ -1,12 +1,16 @@
-version: '3.12'
+version: '3.8'
 
 services:
   grafana:
-    image: grafana/grafana:10.4.0
+    image: grafana/grafana:latest
     container_name: grafana
     restart: always
     ports:
       - "3000:3000"
+    
+    # Rodar como root para evitar problemas de permissão
+    user: "root"
+    
     environment:
       # Habilitar MFA
       - GF_SECURITY_ENABLE_MFA=true
@@ -15,16 +19,28 @@ services:
       # Usuário admin inicial (opcional)
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_LOG_LEVEL=info
 
     volumes:
-      # Persistência REAL do Grafana (não versionada)
-      - ./data:/var/lib/grafana
+      # Persistência de dados
+      - grafana-storage:/var/lib/grafana
 
-      # Configurações do Grafana
-      - ./grafana.ini:/etc/grafana/grafana.ini
+      # Configurações do Grafana (se existir)
+      - ./grafana.ini:/etc/grafana/grafana.ini:ro
 
-      # Provisionamento (datasources + dashboards provider)
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      # Provisionamento
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
 
-      # Dashboards JSON versionadas pelo GitHub
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      # Dashboards JSON
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  grafana-storage:
