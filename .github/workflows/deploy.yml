@@ -113,6 +113,7 @@ jobs:
       - name: Setup Python e instalar AWS CLI
         run: |
           python -m pip install --upgrade pip uv
+          uv venv
           uv pip install awscli
 
       - name: Deploy CloudFormation - Grafana
