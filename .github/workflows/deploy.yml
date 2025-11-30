@@ -42,12 +42,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+        
+      - name: Install Playwright
+        run: pip install playwright && playwright install
 
       - name: Setup Python e instalar dependências com uv
         run: |
           python -m pip install --upgrade uv
           uv sync --no-dev
-          playwright install
 
       - name: Run AWS scraping script
         id: aws_scraping

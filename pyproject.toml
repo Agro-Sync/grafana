@@ -13,6 +13,7 @@ authors = [ { name = "Lucas" } ]
 dependencies = [
   "uvicorn[standard] >=0.21.0",
   "playwright >=1.40.0",
+  "pycodestyle>=2.14.0",
 ]
 
 [project.optional-dependencies]
