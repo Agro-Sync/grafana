@@ -116,6 +116,17 @@ jobs:
           uv venv
           uv pip install awscli
 
+      - name: Validar chave SSH existe na AWS
+        run: |
+          echo "🔑 Verificando se a chave GRAFANA_KEY existe..."
+          aws ec2 describe-key-pairs --key-names GRAFANA_KEY --region us-east-1
+          echo "✅ Chave GRAFANA_KEY encontrada!"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.validar-credenciais.outputs.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.AWS_SESSION_TOKEN }}
+          AWS_DEFAULT_REGION: us-east-1
+
       - name: Deploy CloudFormation - Grafana
         run: |
           echo "📦 Validando template CloudFormation..."
@@ -126,7 +137,8 @@ jobs:
             --template-file infra/grafana.yaml \
             --stack-name agrosync-grafana-stack \
             --parameter-overrides KeyName=GRAFANA_KEY \
-            --region us-east-1
+            --region us-east-1 \
+            --no-fail-on-empty-changeset
 
           echo "✅ Stack CloudFormation deployado com sucesso!"
 
