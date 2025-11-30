@@ -126,7 +126,7 @@ Configure os seguintes secrets em **Settings → Secrets and variables → Actio
 |--------|-----------|
 | `EMAIL` | Email para autenticação AWS |
 | `PASSWORD` | Senha para autenticação AWS |
-| `grafana_key` | Chave PEM para acesso EC2 |
+| `GRAFANA_KEY` | Chave PEM para acesso EC2 |
 | `AWS_ACCESS_KEY_ID` | Credencial AWS |
 | `AWS_SECRET_ACCESS_KEY` | Credencial AWS |
 | `AWS_SESSION_TOKEN` | Token de sessão AWS (temporário) |
@@ -277,7 +277,7 @@ docker-compose up -d
 ## 🔐 Segurança
 
 - ✅ Variáveis de ambiente em secrets do GitHub (não commitadas)
-- ✅ Chave PEM (`grafana_key`) armazenada como secret
+- ✅ Chave PEM (`GRAFANA_KEY`) armazenada como secret
 - ✅ `.gitignore` exclui `.env`, `*.pem`, `__pycache__`, venvs
 - ✅ CloudFormation com CAPABILITY_IAM controlado
 - ✅ Validação de código em cada commit (CI/CD)

@@ -30,10 +30,10 @@ Resources:
   GrafanaEC2:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro
+      InstanceType: t3.small
       SecurityGroupIds:
         - !Ref GrafanaSecurityGroup
-      ImageId: ami-0fc5d935ebf8bc3bc
+      ImageId: ami-0fa3fe0fa7920f68e
       KeyName: !Ref KeyName
       Tags:
         - Key: Name

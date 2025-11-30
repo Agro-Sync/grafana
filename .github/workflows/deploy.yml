@@ -125,7 +125,7 @@ jobs:
           aws cloudformation deploy \
             --template-file infra/grafana.yaml \
             --stack-name agrosync-grafana-stack \
-            --parameter-overrides KeyName=grafana_key \
+            --parameter-overrides KeyName=GRAFANA_KEY \
             --region us-east-1
 
           echo "✅ Stack CloudFormation deployado com sucesso!"
