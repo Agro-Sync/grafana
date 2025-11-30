@@ -15,6 +15,10 @@ services:
       # Habilitar MFA
       - GF_SECURITY_ENABLE_MFA=true
       - GF_SECURITY_MFA_TOKEN_VALIDITY=300
+      - GF_SECURITY_MFA_ENABLED_TOTP=true
+
+      # Tornar MFA obrigatório
+      - GF_AUTH_REQUIRE_MFA=true
 
       # Usuário admin inicial (opcional)
       - GF_SECURITY_ADMIN_USER=admin
