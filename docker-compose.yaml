@@ -17,6 +17,14 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
 
     volumes:
-      # Diretório persistente
+      # Persistência REAL do Grafana (não versionada)
       - ./data:/var/lib/grafana
+
+      # Configurações do Grafana
       - ./grafana.ini:/etc/grafana/grafana.ini
+
+      # Provisionamento (datasources + dashboards provider)
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+      # Dashboards JSON versionadas pelo GitHub
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
