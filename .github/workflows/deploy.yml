@@ -1,0 +1,159 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  validacao-codigo:
+    name: Validação de código
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v3
+
+      - name: Setup Python e instalar dependências com uv
+        run: |
+          python -m pip install --upgrade uv
+          uv sync
+
+      - name: Rodar PEP8 (pycodestyle)
+        run: |
+          echo "🚀 Rodando checagem PEP8 (pycodestyle) — ignorando E501 (linhas longas)..."
+          # ignora a regra E501 (line too long)
+          pycodestyle . --ignore=E501 --exclude=.venv,venv,env || true
+          
+
+  configurar-credenciais:
+    name: Configurar credenciais
+    runs-on: ubuntu-latest
+    needs: validacao-codigo
+    outputs:
+      AWS_ACCESS_KEY_ID: ${{ steps.aws_scraping.outputs.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ steps.aws_scraping.outputs.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ steps.aws_scraping.outputs.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python e instalar dependências com uv
+        run: |
+          python -m pip install --upgrade uv
+          uv sync
+          playwright install
+
+      - name: Run AWS scraping script
+        id: aws_scraping
+        run: |
+          python -u .github/workflows/get_aws_access.py
+
+          echo "AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID creds.txt | cut -d= -f2 | tr -d '\r\n')" >> $GITHUB_OUTPUT
+          echo "AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY creds.txt | cut -d= -f2 | tr -d '\r\n')" >> $GITHUB_OUTPUT
+          echo "AWS_SESSION_TOKEN=$(grep AWS_SESSION_TOKEN creds.txt | cut -d= -f2 | tr -d '\r\n')" >> $GITHUB_OUTPUT
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+
+      - name: Run scraping
+        run: |
+          python -u .github/workflows/scraping.py
+
+      - name: Upload Scraping
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraping
+          path: src/scraping
+
+
+  validar-credenciais:
+    name: Validar credenciais AWS
+    runs-on: ubuntu-latest
+    needs: configurar-credenciais
+    outputs:
+      aws_access_key_id: ${{ needs.configurar-credenciais.outputs.aws_access_key_id }}
+      aws_secret_access_key: ${{ needs.configurar-credenciais.outputs.aws_secret_access_key }}
+      aws_session_token: ${{ needs.configurar-credenciais.outputs.aws_session_token }}
+
+    steps:
+      - name: Setup Python e instalar awscli com uv
+        run: |
+          python -m pip install --upgrade uv
+          uv pip install awscli
+
+      - name: Validar credenciais
+        run: |
+          echo "🔍 Validando credenciais AWS..."
+          echo "AWS_ACCESS_KEY_ID: ${#AWS_ACCESS_KEY_ID} caracteres"
+          echo "AWS_SECRET_ACCESS_KEY: ${#AWS_SECRET_ACCESS_KEY} caracteres"
+          echo "AWS_SESSION_TOKEN: ${#AWS_SESSION_TOKEN} caracteres"
+          
+          aws sts get-caller-identity
+          aws s3 ls
+          echo "✅ Credenciais válidas!"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.configurar-credenciais.outputs.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.configurar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ needs.configurar-credenciais.outputs.AWS_SESSION_TOKEN }}
+
+  upload-to-s3:
+    runs-on: ubuntu-latest
+    needs: validar-credenciais
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Baixar artefato de scraping
+        uses: actions/download-artifact@v4
+        with:
+          name: scraping
+          path: src/scraping
+
+      - name: Instalar zip
+        run: sudo apt-get install -y zip
+
+      - name: Compactar código com versão
+        id: zip
+        run: |
+          VERSION_TAG=$(date +'%Y%m%d-%H%M%S') # ou use git describe --tags
+          ZIP_NAME="analizador-${VERSION_TAG}.zip"
+          zip -r "$ZIP_NAME" src/
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+
+      - name: Configurar credenciais AWS
+        run: |
+          echo "🔧 Configurando credenciais AWS..."
+          echo "AWS_ACCESS_KEY_ID: ${#AWS_ACCESS_KEY_ID} caracteres"
+          echo "AWS_SECRET_ACCESS_KEY: ${#AWS_SECRET_ACCESS_KEY} caracteres"
+          echo "AWS_SESSION_TOKEN: ${#AWS_SESSION_TOKEN} caracteres"
+          
+          # Testar credenciais
+          aws sts get-caller-identity || echo "❌ Falha na autenticação AWS"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.validar-credenciais.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.aws_session_token }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Enviar versão para o S3
+        run: |
+          aws s3 cp ${{ steps.zip.outputs.zip_name }} s3://agrosync-bronze-jupyter/releases/${{ steps.zip.outputs.zip_name }}
+          aws s3 cp ${{ steps.zip.outputs.zip_name }} s3://agrosync-bronze-jupyter/releases/latest.zip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.validar-credenciais.outputs.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.AWS_SESSION_TOKEN }}
+          AWS_DEFAULT_REGION: us-east-1

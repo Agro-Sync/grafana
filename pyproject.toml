@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grafana"
+version = "0.1.0"
+description = "Ferramentas de scraping e deploy para AgroSync"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [ { name = "Lucas" } ]
+
+dependencies = [
+  "uvicorn[standard] >=0.21.0",
+  "playwright >=1.40.0",
+  "pycodestyle>=2.14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pycodestyle>=2.14.0",
+  "pytest>=7.0",
+  "flake8>=6.0.0",
+]
+
+[tool.pycodestyle]
+max_line_length = 79
+ignore = ["E203", "W503", "E501"]
+exclude = ".venv,venv,env"
