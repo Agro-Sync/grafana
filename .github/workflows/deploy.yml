@@ -83,6 +83,7 @@ jobs:
       - name: Setup Python e instalar awscli com uv
         run: |
           python -m pip install --upgrade uv
+          uv venv
           uv pip install awscli
 
       - name: Validar credenciais
