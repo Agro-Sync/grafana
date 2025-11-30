@@ -1,19 +1,31 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy Grafana with Docker on EC2
+Description: Deploy Grafana with Docker on EC2 - AgroSync
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Nome da chave SSH (.pem) criada na AWS
+    ConstraintDescription: Deve ser uma chave existente na regiao
 
 Resources:
-
   GrafanaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow Grafana access
+      GroupDescription: Security group para Grafana
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
-          CidrIp: 0.0.0.0/0  # LIBERADO PARA INTERNET
-      VpcId:
-        Fn::ImportValue: DefaultVPC  # Se não tiver VPC, te passo outra versão
+          CidrIp: 0.0.0.0/0
+          Description: Grafana Web UI
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH Access
+      Tags:
+        - Key: Name
+          Value: grafana-sg
 
   GrafanaEC2:
     Type: AWS::EC2::Instance
@@ -21,26 +33,54 @@ Resources:
       InstanceType: t2.micro
       SecurityGroupIds:
         - !Ref GrafanaSecurityGroup
-      ImageId: ami-0fc5d935ebf8bc3bc  # Amazon Linux 2023 (região us-east-1)
-      KeyName: grafana_key  # SUA chave PEM da conta estudante
+      ImageId: ami-0fc5d935ebf8bc3bc
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: grafana-server
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
+          set -e
+          exec > >(tee /var/log/user-data.log)
+          exec 2>&1
+          
+          echo "[$(date)] Iniciando setup do Grafana..."
+          
           yum update -y
           yum install -y docker git
+          
           systemctl enable docker
           systemctl start docker
-
-          curl -L "https://github.com/docker/compose/releases/download/2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          
+          echo "[$(date)] Docker instalado com sucesso"
+          
+          curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
-
-          mkdir /grafana
-          cd /grafana
+          
+          echo "[$(date)] Docker Compose instalado com sucesso"
+          
+          cd /home/ec2-user
           git clone https://github.com/Agro-Sync/grafana.git
-          cd grafana-repo
-
-          docker-compose up -d
+          cd grafana
+          
+          /usr/local/bin/docker-compose up -d
+          
+          echo "[$(date)] Grafana iniciado com sucesso!"
 
 Outputs:
   GrafanaURL:
+    Description: URL do Grafana
     Value: !Sub "http://${GrafanaEC2.PublicIp}:3000"
+  
+  GrafanaInstanceIP:
+    Description: IP Publico da instancia
+    Value: !GetAtt GrafanaEC2.PublicIp
+  
+  GrafanaInstanceId:
+    Description: ID da instancia EC2
+    Value: !Ref GrafanaEC2
+  
+  SecurityGroupId:
+    Description: ID do Security Group
+    Value: !Ref GrafanaSecurityGroup
