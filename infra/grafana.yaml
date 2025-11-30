@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Grafana with Docker on EC2
+
+Resources:
+
+  GrafanaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Grafana access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0  # LIBERADO PARA INTERNET
+      VpcId:
+        Fn::ImportValue: DefaultVPC  # Se não tiver VPC, te passo outra versão
+
+  GrafanaEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref GrafanaSecurityGroup
+      ImageId: ami-0fc5d935ebf8bc3bc  # Amazon Linux 2023 (região us-east-1)
+      KeyName: grafana_key  # SUA chave PEM da conta estudante
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y docker git
+          systemctl enable docker
+          systemctl start docker
+
+          curl -L "https://github.com/docker/compose/releases/download/2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+
+          mkdir /grafana
+          cd /grafana
+          git clone https://github.com/Agro-Sync/grafana.git
+          cd grafana-repo
+
+          docker-compose up -d
+
+Outputs:
+  GrafanaURL:
+    Value: !Sub "http://${GrafanaEC2.PublicIp}:3000"

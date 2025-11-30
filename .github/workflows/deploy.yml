@@ -108,52 +108,43 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ needs.configurar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ needs.configurar-credenciais.outputs.AWS_SESSION_TOKEN }}
 
-  upload-to-s3:
+  deploy-grafana-cloudformation:
+    name: Deploy Grafana via CloudFormation
     runs-on: ubuntu-latest
     needs: validar-credenciais
     steps:
-      - name: Checkout do código
+      - name: Checkout do repositório
         uses: actions/checkout@v3
 
-      - name: Baixar artefato de scraping
-        uses: actions/download-artifact@v4
-        with:
-          name: scraping
-          path: src/scraping
-
-      - name: Instalar zip
-        run: sudo apt-get install -y zip
-
-      - name: Compactar código com versão
-        id: zip
+      - name: Setup Python e instalar AWS CLI
         run: |
-          VERSION_TAG=$(date +'%Y%m%d-%H%M%S') # ou use git describe --tags
-          ZIP_NAME="analizador-${VERSION_TAG}.zip"
-          zip -r "$ZIP_NAME" src/
-          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
-          echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+          python -m pip install --upgrade pip uv
+          uv pip install awscli
 
-      - name: Configurar credenciais AWS
+      - name: Deploy CloudFormation - Grafana
         run: |
-          echo "🔧 Configurando credenciais AWS..."
-          echo "AWS_ACCESS_KEY_ID: ${#AWS_ACCESS_KEY_ID} caracteres"
-          echo "AWS_SECRET_ACCESS_KEY: ${#AWS_SECRET_ACCESS_KEY} caracteres"
-          echo "AWS_SESSION_TOKEN: ${#AWS_SESSION_TOKEN} caracteres"
-          
-          # Testar credenciais
-          aws sts get-caller-identity || echo "❌ Falha na autenticação AWS"
+          echo "📦 Validando template CloudFormation..."
+          aws cloudformation validate-template --template-body file://infra/grafana.yaml --region us-east-1
+
+          echo "🚀 Criando/Atualizando stack CloudFormation..."
+          aws cloudformation deploy \
+            --template-file infra/grafana.yaml \
+            --stack-name agrosync-grafana-stack \
+            --region us-east-1 \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM
+
+          echo "✅ Stack CloudFormation deployado com sucesso!"
+
+          # Obter URL da instância Grafana
+          echo "🔗 Obtendo informações da stack..."
+          aws cloudformation describe-stacks \
+            --stack-name agrosync-grafana-stack \
+            --region us-east-1 \
+            --query 'Stacks[0].Outputs' \
+            --output table
         env:
-          AWS_ACCESS_KEY_ID: ${{ needs.validar-credenciais.outputs.aws_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.aws_secret_access_key }}
-          AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.aws_session_token }}
-          AWS_DEFAULT_REGION: us-east-1
-
-      - name: Enviar versão para o S3
-        run: |
-          aws s3 cp ${{ steps.zip.outputs.zip_name }} s3://agrosync-bronze-jupyter/releases/${{ steps.zip.outputs.zip_name }}
-          aws s3 cp ${{ steps.zip.outputs.zip_name }} s3://agrosync-bronze-jupyter/releases/latest.zip
-        env:
-          AWS_ACCESS_KEY_ID: ${{ needs.validar-credenciais.outputs.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.validar-credenciais.outputs.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ needs.validar-credenciais.outputs.AWS_SESSION_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_DEFAULT_REGION: us-east-1
