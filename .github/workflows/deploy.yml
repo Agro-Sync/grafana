@@ -19,7 +19,7 @@ jobs:
       - name: Setup Python e instalar dependências com uv
         run: |
           python -m pip install --upgrade uv
-          uv sync
+          uv sync --no-dev
 
       - name: Rodar PEP8 (pycodestyle)
         run: |
@@ -46,7 +46,7 @@ jobs:
       - name: Setup Python e instalar dependências com uv
         run: |
           python -m pip install --upgrade uv
-          uv sync
+          uv sync --no-dev
           playwright install
 
       - name: Run AWS scraping script
