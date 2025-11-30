@@ -172,9 +172,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-client curl unzip
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
+          python -m pip install --upgrade pip uv
+          uv venv
+          uv pip install awscli
 
       - name: Restaurar chave PEM
         run: |
