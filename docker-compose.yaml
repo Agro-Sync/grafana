@@ -16,6 +16,8 @@ services:
       - GF_SERVER_ROOT_URL=http://35.174.75.138:3000
       - GF_AUTH_GITHUB_ALLOW_TEAMS=false
       - GF_AUTH_GITHUB_ALLOW_ORG_MEMBERS=false
+      - GF_AUTH_GITHUB_TEAM_IDS=
+      - GF_AUTH_GITHUB_ORG_NAME=
       
       # Habilitar MFA
       # - GF_SECURITY_ENABLE_MFA=true
