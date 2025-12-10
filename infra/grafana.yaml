@@ -5,7 +5,7 @@ Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Nome da chave SSH (.pem) criada na AWS
-    ConstraintDescription: Deve ser uma chave existente na regiao
+    ConstraintDescription: Deve ser uma chave existente na região
 
 Resources:
   GrafanaSecurityGroup:
@@ -22,7 +22,7 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-          Description: SSH Access
+          Description: SSH
       Tags:
         - Key: Name
           Value: grafana-sg
@@ -45,47 +45,62 @@ Resources:
           exec > >(tee /var/log/user-data.log)
           exec 2>&1
           
-          echo "[$(date)] Iniciando setup do Grafana..."
-          
           yum update -y
           yum install -y docker git
-          
+
           systemctl enable docker
           systemctl start docker
-          
-          echo "[$(date)] Docker instalado com sucesso"
-          
+
+          # Instala Docker Compose
           curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
-          
-          echo "[$(date)] Docker Compose instalado com sucesso"
-          
+
           cd /home/ec2-user
+
           git clone https://github.com/Agro-Sync/grafana.git
           cd grafana
-          
-          # Criar diretório de dados com permissões
+
           mkdir -p ./data
           chmod 777 ./data
-          
-          # Rodar docker-compose com sudo
-          sudo /usr/local/bin/docker-compose up -d
-          
-          echo "[$(date)] Grafana iniciado com sucesso!"
+
+          export GF_SERVER_ROOT_URL="http://${ElasticIP}:3000/"
+
+          # export GF_AUTH_GITHUB_ENABLED=true
+          # export GF_AUTH_GITHUB_ALLOW_SIGN_UP=true
+          # export GF_AUTH_GITHUB_CLIENT_ID="SEU_CLIENT_ID"
+          # export GF_AUTH_GITHUB_CLIENT_SECRET="SEU_SECRET"
+          # export GF_AUTH_GITHUB_SCOPES="user:email"
+          # export GF_AUTH_GITHUB_AUTH_URL="https://github.com/login/oauth/authorize"
+          # export GF_AUTH_GITHUB_TOKEN_URL="https://github.com/login/oauth/access_token"
+          # export GF_AUTH_GITHUB_API_URL="https://api.github.com/user"
+
+          # Inicia stack
+          /usr/local/bin/docker-compose up -d
+
+  GrafanaElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  GrafanaEIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref GrafanaEC2
+      EIP: !Ref GrafanaElasticIP
 
 Outputs:
   GrafanaURL:
-    Description: URL do Grafana
-    Value: !Sub "http://${GrafanaEC2.PublicIp}:3000"
-  
-  GrafanaInstanceIP:
-    Description: IP Publico da instancia
-    Value: !GetAtt GrafanaEC2.PublicIp
-  
-  GrafanaInstanceId:
-    Description: ID da instancia EC2
+    Description: URL público do Grafana
+    Value: !Sub "http://${GrafanaElasticIP}:3000"
+
+  InstancePublicIP:
+    Description: IP público (Elastic IP)
+    Value: !Ref GrafanaElasticIP
+
+  InstanceId:
+    Description: EC2 Instance ID
     Value: !Ref GrafanaEC2
-  
+
   SecurityGroupId:
-    Description: ID do Security Group
+    Description: Security Group ID
     Value: !Ref GrafanaSecurityGroup
