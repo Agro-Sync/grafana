@@ -12,6 +12,7 @@ services:
     user: "root"
     
     environment:
+      - GF_SERVER_ROOT_URL=http://35.174.75.138:3000
       # Habilitar MFA
       - GF_SECURITY_ENABLE_MFA=true
       - GF_SECURITY_MFA_TOKEN_VALIDITY=300
